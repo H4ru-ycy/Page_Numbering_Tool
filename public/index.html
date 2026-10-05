@@ -99,10 +99,15 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .status{font-size:.86rem;min-height:1.3em;margin:10px 0 0}
 .status.err{color:var(--danger)}
 .status.ok{color:var(--accent)}
-.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;margin-top:6px}
-.thumb{display:grid;gap:4px;justify-items:center;min-width:0}
-.thumb canvas{width:100%;height:auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.thumb small{font-size:.74rem;color:var(--sub);font-variant-numeric:tabular-nums;text-align:center}
+.thumbs{display:grid;gap:20px;margin-top:6px}
+.sp{margin:0;display:grid;gap:6px;min-width:0}
+.sp-pages{display:flex;justify-content:center;max-width:460px;width:100%;margin:0 auto;box-shadow:0 2px 6px rgba(0,0,0,.22)}
+.sp-page{flex:1 1 0;min-width:0;background:#fff;position:relative}
+.sp-page canvas{display:block;width:100%;height:auto}
+.sp-page.left{box-shadow:inset -6px 0 8px -6px rgba(0,0,0,.35)}
+.sp-page.right{box-shadow:inset 6px 0 8px -6px rgba(0,0,0,.35)}
+.sp-page.blank{background:var(--sheet)}
+.sp figcaption{display:flex;justify-content:space-around;max-width:460px;width:100%;margin:0 auto;font-size:.76rem;color:var(--sub);font-variant-numeric:tabular-nums}
 .pager{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px}
 .pager button{padding:8px 12px}
 .pager span{font-size:.85rem;color:var(--sub);font-variant-numeric:tabular-nums}
@@ -291,12 +296,12 @@ footer a{color:var(--accent)}
         <p class="status" id="runStatus">PDFを選ぶと実行できます。</p>
         <div id="warnBox"></div>
         <div id="preview">
-          <div class="empty" id="pvEmpty">番号を付けると、仕上がりをここで確認できます。</div>
+          <div class="empty" id="pvEmpty">番号を付けると、仕上がりを見開きで確認できます。</div>
           <div class="thumbs" id="thumbs"></div>
           <div class="pager" id="pager" hidden>
-            <button class="ghost" id="prev">‹ 前</button>
+            <button class="ghost" id="prev">‹ 前へ</button>
             <span id="pvRange"></span>
-            <button class="ghost" id="next">次 ›</button>
+            <button class="ghost" id="next">次へ ›</button>
           </div>
         </div>
       </section>
@@ -325,8 +330,11 @@ footer a{color:var(--accent)}
 <script>
 /* ===== ここを書き換えてください ===== */
 const X_ACCOUNT = "";   // お問い合わせ用のXアカウント（例："@harutsumugi"）。空のままだと「準備中」と表示されます。
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "1.1.0";
 const HISTORY = [
+  { ver: "1.1.0", date: "2026-10-05", notes: [
+    "プレビューを左右の見開き表示に変更（綴じ方向に合わせて並べ、片側だけの見開きは白ページで表示）"
+  ]},
   { ver: "1.0.0", date: "2026-10-05", notes: [
     "初版公開",
     "ページ番号の位置：上・外側／下・中央／下・外側",
@@ -341,7 +349,7 @@ const HISTORY = [
 (() => {
   const $ = id => document.getElementById(id);
   const MM = 72 / 25.4;
-  const PER_VIEW = 6;
+  const PER_VIEW = 3;   // 1画面に出す見開き数
   const SIZES = { a6:[105,148], b6:[128,182], a5:[148,210], b5:[182,257], a5sq:[148,148], b5sq:[182,182] };
   let src = null, out = null, pvDoc = null, pvStart = 1, downloads = null;
 
@@ -621,7 +629,7 @@ const HISTORY = [
   function resetOutput() {
     out = null; pvDoc = null; $("save").disabled = true;
     $("thumbs").innerHTML = ""; $("pager").hidden = true; $("pvEmpty").hidden = false;
-    $("pvEmpty").textContent = "番号を付けると、仕上がりをここで確認できます。";
+    $("pvEmpty").textContent = "番号を付けると、仕上がりを見開きで確認できます。";
     $("warnBox").innerHTML = "";
   }
 
@@ -633,24 +641,57 @@ const HISTORY = [
     try { pvDoc = await pdfjsLib.getDocument({ data: out.slice() }).promise; pvStart = 1; await renderThumbs(); }
     catch (e) { fail(); }
   }
+  // 見開きの組を作る（右綴じは右→左、左綴じは左→右の順にめくる）
+  function buildSpreads(o, total) {
+    const lead = o.bind === "right" ? "right" : "left";
+    const list = []; let cur = null;
+    for (let i = 0; i < total; i++) {
+      const s = sideOf(i, o);
+      if (!cur || s === lead || cur[s] != null) { cur = { left: null, right: null }; list.push(cur); }
+      cur[s] = i;
+    }
+    return list;
+  }
+  let spreads = [], renderToken = 0;
   async function renderThumbs() {
-    const o = opts(), total = pvDoc.numPages, end = Math.min(total, pvStart + PER_VIEW - 1);
+    const o = opts(), total = pvDoc.numPages;
+    spreads = buildSpreads(o, total);
+    const end = Math.min(spreads.length, pvStart + PER_VIEW - 1);
+    const token = ++renderToken;
     const box = $("thumbs"); box.innerHTML = "";
-    $("pager").hidden = total <= PER_VIEW;
-    $("pvRange").textContent = `${pvStart}–${end} / ${total}枚`;
-    $("prev").disabled = pvStart <= 1; $("next").disabled = end >= total;
+    $("pager").hidden = spreads.length <= PER_VIEW;
+    $("pvRange").textContent = `見開き ${pvStart}–${end} / ${spreads.length}`;
+    $("prev").disabled = pvStart <= 1; $("next").disabled = end >= spreads.length;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    for (let i = pvStart; i <= end; i++) {
-      const page = await pvDoc.getPage(i);
-      const vp0 = page.getViewport({ scale: 1 });
-      const vp = page.getViewport({ scale: (200 / vp0.width) * dpr });
-      const c = document.createElement("canvas");
-      c.width = Math.round(vp.width); c.height = Math.round(vp.height);
-      const fig = document.createElement("div"); fig.className = "thumb";
-      const n = o.start + i - 1, side = sideOf(i - 1, o) === "left" ? "左" : "右";
-      fig.innerHTML = `<small>${side}ページ・${o.hide.has(n) ? "番号なし" : "p." + n}</small>`;
-      fig.prepend(c); box.appendChild(fig);
-      await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    const label = i => { const n = o.start + i; return o.hide.has(n) ? "番号なし" : "p." + n; };
+    for (let k = pvStart; k <= end; k++) {
+      const sp = spreads[k - 1];
+      const fig = document.createElement("figure"); fig.className = "sp";
+      const pagesEl = document.createElement("div"); pagesEl.className = "sp-pages";
+      const cap = document.createElement("figcaption");
+      cap.innerHTML = `<span>左　${sp.left != null ? label(sp.left) : "（白）"}</span><span>右　${sp.right != null ? label(sp.right) : "（白）"}</span>`;
+      fig.append(pagesEl, cap); box.appendChild(fig);
+      const slots = {};
+      for (const side of ["left", "right"]) {
+        const d = document.createElement("div"); d.className = "sp-page " + side;
+        pagesEl.appendChild(d); slots[side] = d;
+      }
+      let ratio = null;
+      for (const side of ["left", "right"]) {
+        const i = sp[side];
+        if (i == null) continue;
+        const page = await pvDoc.getPage(i + 1);
+        if (token !== renderToken) return;
+        const vp0 = page.getViewport({ scale: 1 });
+        ratio = `${vp0.width.toFixed(1)}/${vp0.height.toFixed(1)}`;
+        const vp = page.getViewport({ scale: (260 / vp0.width) * dpr });
+        const c = document.createElement("canvas");
+        c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+        slots[side].appendChild(c);
+        await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+        if (token !== renderToken) return;
+      }
+      for (const side of ["left", "right"]) if (sp[side] == null) { slots[side].classList.add("blank"); slots[side].style.aspectRatio = ratio; }
     }
   }
 
