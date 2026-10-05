@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="小説PDFにノンブル（ページ番号）とタイトル（柱）を入れる無料ツール。ブラウザ内で処理し、ファイルは送信されません。">
+<title>ページ番号追加ツール</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Noto+Serif+JP:wght@400&display=swap">
+<style>
+/* レイアウト: スマホは1カラム。広い画面では「設定」と「確認・保存」の2カラム。 */
+:root{
+  --paper:#F5F6F9; --card:#FFFFFF; --ink:#1C2232; --sub:#5B6275; --line:#D8DCE5;
+  --accent:#2D4A7E; --accent-ink:#FFFFFF; --accent-soft:#E2E8F3; --danger:#A33A3A;
+  --sheet:#FFFFFF; --sheet-ink:#2A2A2A; --sheet-rule:#C9CCD3; --nombre:#B5402F; --gutter:rgba(45,74,126,.16);
+  --f-display:"Shippori Mincho","Noto Serif JP","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#11141B; --card:#191D27; --ink:#E5E8EF; --sub:#9AA2B4; --line:#2C3241;
+  --accent:#8FAADC; --accent-ink:#0E1420; --accent-soft:#212A3B; --danger:#E08A8A;
+  --sheet:#E8E9ED; --sheet-ink:#222; --sheet-rule:#B9BDC6; --nombre:#B5402F; --gutter:rgba(45,74,126,.2); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#11141B; --card:#191D27; --ink:#E5E8EF; --sub:#9AA2B4; --line:#2C3241;
+  --accent:#8FAADC; --accent-ink:#0E1420; --accent-soft:#212A3B; --danger:#E08A8A;
+  --sheet:#E8E9ED; --sheet-ink:#222; --sheet-rule:#B9BDC6; --nombre:#B5402F; --gutter:rgba(45,74,126,.2); color-scheme:dark}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.65}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:16px;padding-block:20px 40px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+header h1{font-family:var(--f-display);font-weight:700;font-size:1.6rem;margin:0;letter-spacing:.04em;text-wrap:balance}
+.ver{font-size:.75rem;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:1px 9px;font-variant-numeric:tabular-nums}
+header p{flex-basis:100%;margin:.25rem 0 0;color:var(--sub);font-size:.9rem}
+.grid{display:grid;gap:20px;margin-top:20px}
+@media (min-width:860px){.grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}.col.sticky{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}}
+.col{display:grid;gap:20px;min-width:0}
+section.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 16px;min-width:0}
+h2{font-family:var(--f-display);font-size:1.05rem;margin:0 0 12px;display:flex;gap:.5em;align-items:baseline}
+h2 .step{font-family:var(--f-body);font-size:.72rem;font-weight:700;color:var(--accent);letter-spacing:.08em}
+.notice{margin:0 0 12px;padding:10px 12px;background:var(--accent-soft);border-radius:8px;font-size:.84rem;line-height:1.6}
+.notice strong{color:var(--accent)}
+.drop{display:grid;place-items:center;text-align:center;gap:6px;border:1.5px dashed var(--line);border-radius:var(--r);padding:26px 12px;cursor:pointer;transition:border-color .15s,background .15s;position:relative}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop strong{font-size:1rem}
+.drop span{color:var(--sub);font-size:.85rem}
+.drop input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.fileinfo{margin:12px 0 0;display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:.88rem}
+.fileinfo dt{color:var(--sub)}
+.fileinfo dd{margin:0;min-width:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.fields{display:grid;gap:16px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+label.f{display:grid;gap:4px;font-size:.82rem;color:var(--sub);font-weight:500;min-width:0;align-content:start}
+.hint{font-size:.76rem;color:var(--sub);margin:6px 0 0}
+input[type=text],input[type=number],select{font:inherit;font-size:1rem;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;box-sizing:border-box;font-variant-numeric:tabular-nums;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible,.seg label:has(input:focus-visible),.checks label:has(input:focus-visible),.drop:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.unit{position:relative;display:block}
+.unit input{padding-right:2.6em}
+.unit em{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-style:normal;color:var(--sub);font-size:.8rem;pointer-events:none}
+.seg{display:flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--paper)}
+.seg label{flex:1 1 0;min-width:0;text-align:center;padding:8px 4px;font-size:.84rem;color:var(--ink);cursor:pointer;border-left:1px solid var(--line);line-height:1.35}
+.seg label:first-child{border-left:0}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){background:var(--accent);color:var(--accent-ink);font-weight:700}
+.seg.four label{flex-basis:50%;border-top:1px solid var(--line)}
+.seg.four label:nth-child(-n+2){border-top:0}
+.seg.four label:nth-child(3){border-left:0}
+.checks{display:flex;gap:10px;flex-wrap:wrap}
+.checks label{flex:1 1 0;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:.88rem;cursor:pointer;background:var(--paper)}
+.checks input{accent-color:var(--accent);width:18px;height:18px;margin:0}
+.fieldset-title{font-size:.82rem;color:var(--sub);font-weight:500;margin-bottom:4px}
+.inline{display:flex;gap:10px;align-items:center}
+.inline .seg{flex:1}
+.inline .unit{width:7.5em;flex:none}
+/* 見開き図 */
+.spread{display:flex;justify-content:center;padding:8px 0 4px}
+.page{position:relative;width:min(44%,180px);background:var(--sheet);color:var(--sheet-ink);box-shadow:0 1px 3px rgba(0,0,0,.18);overflow:hidden}
+.page + .page{border-left:1px solid var(--sheet-rule)}
+.page .gut{position:absolute;top:0;bottom:0;background:var(--gutter)}
+.page .trim{position:absolute;border:1px dashed var(--nombre);opacity:.55}
+.page .body{position:absolute}
+.page.v .body{background:repeating-linear-gradient(90deg,var(--sheet-rule) 0 2px,transparent 2px 9px)}
+.page.h .body{background:repeating-linear-gradient(180deg,var(--sheet-rule) 0 2px,transparent 2px 9px)}
+.page .slot{position:absolute;font-family:"Times New Roman",Times,serif;font-size:11px;white-space:nowrap;display:flex;gap:.8em;align-items:baseline;color:var(--sheet-ink);line-height:1}
+.page .slot b{color:var(--nombre);font-weight:700}
+.page .slot i{font-style:normal;font-family:var(--f-display);font-size:9.5px;max-width:7em;overflow:hidden;text-overflow:ellipsis}
+.page .side{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:10px;font-weight:700;color:#6a7080}
+.page .side span{background:var(--sheet);padding:2px 5px;border-radius:4px}
+.spread-cap{text-align:center;font-size:.8rem;color:var(--sub);margin:6px 0 0}
+.legend{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;font-size:.74rem;color:var(--sub);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;vertical-align:-1px;margin-right:4px;border-radius:2px}
+/* ボタン・状態 */
+.actions{display:grid;gap:10px}
+button{font:inherit;font-weight:700;border-radius:8px;padding:12px 14px;cursor:pointer;border:1px solid transparent}
+button.primary{background:var(--accent);color:var(--accent-ink)}
+button.ghost{background:transparent;border-color:var(--line);color:var(--ink)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.status{font-size:.86rem;min-height:1.3em;margin:10px 0 0}
+.status.err{color:var(--danger)}
+.status.ok{color:var(--accent)}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;margin-top:6px}
+.thumb{display:grid;gap:4px;justify-items:center;min-width:0}
+.thumb canvas{width:100%;height:auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.thumb small{font-size:.74rem;color:var(--sub);font-variant-numeric:tabular-nums;text-align:center}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px}
+.pager button{padding:8px 12px}
+.pager span{font-size:.85rem;color:var(--sub);font-variant-numeric:tabular-nums}
+.empty{color:var(--sub);font-size:.88rem;padding:18px 0;text-align:center}
+.warn{background:var(--accent-soft);border-radius:8px;padding:8px 10px;font-size:.82rem;margin:8px 0 0}
+/* フッター */
+footer{margin-top:28px;display:grid;gap:16px}
+@media (min-width:860px){footer{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}}
+footer h3{font-family:var(--f-display);font-size:.98rem;margin:0 0 8px}
+footer a{color:var(--accent)}
+.contact p{margin:0;font-size:.88rem}
+.history details{font-size:.86rem}
+.history summary{cursor:pointer;color:var(--accent);font-weight:700}
+.history ol{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:12px}
+.history li{display:grid;gap:2px}
+.history .h-head{display:flex;gap:10px;align-items:baseline;font-variant-numeric:tabular-nums}
+.history .h-head b{font-size:.9rem}
+.history .h-head span{color:var(--sub);font-size:.8rem}
+.history ul{margin:2px 0 0;padding-left:1.2em;color:var(--ink)}
+.copy{text-align:center;color:var(--sub);font-size:.78rem;margin-top:24px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<style>*,*::before,*::after{box-sizing:border-box}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;-webkit-text-size-adjust:100%}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ページ番号追加ツール</h1>
+    <span class="ver" id="verBadge"></span>
+    <p>小説PDFにノンブル（ページ番号）とタイトル（柱）を入れます。ファイルは端末の中だけで処理され、どこにも送信されません。</p>
+  </header>
+
+  <div class="grid">
+    <div class="col">
+      <section class="card">
+        <h2><span class="step">STEP 1</span>PDFを選ぶ</h2>
+        <p class="notice"><strong>Googleドライブ・Dropboxなどに保存しているPDFは</strong>、一度スマホやPCにダウンロードしてから、端末のファイルとして選んでください。</p>
+        <label class="drop" id="drop">
+          <input type="file" id="file" accept="application/pdf,.pdf">
+          <strong>タップしてPDFを選択</strong>
+          <span>PCはここにドラッグ＆ドロップもできます</span>
+        </label>
+        <dl class="fileinfo" id="fileinfo" hidden>
+          <dt>ファイル</dt><dd id="fi-name"></dd>
+          <dt>ページ数</dt><dd id="fi-pages"></dd>
+          <dt>サイズ</dt><dd id="fi-size"></dd>
+        </dl>
+        <p class="status" id="loadStatus"></p>
+      </section>
+
+      <section class="card">
+        <h2><span class="step">STEP 2</span>用紙と並び</h2>
+        <div class="fields">
+          <label class="f">仕上がりサイズ
+            <select id="paper">
+              <option value="orig:0">元のPDFのサイズのまま</option>
+              <option value="a6:3">A6 (105x148mm) + 塗り足し(3mm)</option>
+              <option value="a6:0">A6 (105x148mm)</option>
+              <option value="b6:3">B6 (128x182mm) + 塗り足し(3mm)</option>
+              <option value="b6:0">B6 (128x182mm)</option>
+              <option value="a5:3">A5 (148x210mm) + 塗り足し(3mm)</option>
+              <option value="a5:0">A5 (148x210mm)</option>
+              <option value="b5:3">B5 (182x257mm) + 塗り足し(3mm)</option>
+              <option value="b5:0">B5 (182x257mm)</option>
+              <option value="a5sq:3">A5正方形 (148x148mm) + 塗り足し(3mm)</option>
+              <option value="a5sq:0">A5正方形 (148x148mm)</option>
+              <option value="b5sq:3">B5正方形 (182x182mm) + 塗り足し(3mm)</option>
+              <option value="b5sq:0">B5正方形 (182x182mm)</option>
+            </select>
+          </label>
+          <p class="hint" style="margin-top:-10px">サイズを選ぶと、PDFの各ページをその用紙に収まるよう配置し直します。塗り足しありの場合、番号の位置は仕上がり線から測ります。</p>
+
+          <div>
+            <div class="fieldset-title">とじしろ</div>
+            <div class="inline">
+              <div class="seg" role="radiogroup" aria-label="とじしろ">
+                <label><input type="radio" name="gutterOn" id="gut-off" value="off" checked>なし</label>
+                <label><input type="radio" name="gutterOn" id="gut-on" value="on">あり</label>
+              </div>
+              <span class="unit"><input type="number" id="gutter" min="0" max="40" step="0.5" value="5" inputmode="decimal" aria-label="とじしろの幅"><em>mm</em></span>
+            </div>
+            <p class="hint">ありの場合、のど側（綴じる側）に指定した幅の余白を空け、本文を外側へずらします（必要に応じて本文を少し縮小します）。</p>
+          </div>
+
+          <div>
+            <div class="fieldset-title">綴じ方向</div>
+            <div class="seg" role="radiogroup" aria-label="綴じ方向">
+              <label><input type="radio" name="bind" id="bind-r" value="right" checked>右綴じ（縦書き）</label>
+              <label><input type="radio" name="bind" id="bind-l" value="left">左綴じ（横書き）</label>
+            </div>
+          </div>
+
+          <div>
+            <div class="fieldset-title">PDFの1枚目を置くページ</div>
+            <div class="seg" role="radiogroup" aria-label="1枚目のページ">
+              <label><input type="radio" name="first" id="first-l" value="left" checked>左ページから始める</label>
+              <label><input type="radio" name="first" id="first-r" value="right">右ページから始める</label>
+            </div>
+            <p class="hint">以降は左右交互に並びます。番号やタイトルの「外側」「のど側」はこの左右で決まります。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2><span class="step">STEP 3</span>ページ番号</h2>
+        <div class="fields">
+          <div>
+            <div class="fieldset-title">表示位置</div>
+            <div class="seg" role="radiogroup" aria-label="ページ番号の位置">
+              <label><input type="radio" name="numPos" id="np-to" value="top-outer" checked>上・外側</label>
+              <label><input type="radio" name="numPos" id="np-bc" value="bottom-center">下・中央</label>
+              <label><input type="radio" name="numPos" id="np-bo" value="bottom-outer">下・外側</label>
+            </div>
+          </div>
+          <div class="row2">
+            <label class="f">開始ページ番号
+              <input type="number" id="start" min="1" step="1" value="1" inputmode="numeric">
+            </label>
+            <label class="f">番号を隠すページ
+              <input type="text" id="hide" placeholder="例：1-2, 42" autocomplete="off">
+            </label>
+          </div>
+          <p class="hint" style="margin-top:-10px">「開始ページ番号」はPDFの1枚目に割り当てる番号です。表紙や扉など番号を出したくないページは番号で指定します（数えたまま非表示になり、タイトルも出ません）。</p>
+          <div class="row3">
+            <label class="f">文字サイズ
+              <span class="unit"><input type="number" id="size" min="5" max="24" step="0.5" value="9" inputmode="decimal"><em>pt</em></span>
+            </label>
+            <label class="f">上下からの距離
+              <span class="unit"><input type="number" id="vdist" min="0" max="60" step="0.5" value="10" inputmode="decimal"><em>mm</em></span>
+            </label>
+            <label class="f">外側からの距離
+              <span class="unit"><input type="number" id="outer" min="0" max="60" step="0.5" value="12" inputmode="decimal"><em>mm</em></span>
+            </label>
+          </div>
+          <div>
+            <div class="fieldset-title">書体</div>
+            <div class="seg" role="radiogroup" aria-label="書体">
+              <label><input type="radio" name="face" id="face-serif" value="serif" checked>明朝系</label>
+              <label><input type="radio" name="face" id="face-sans" value="sans">ゴシック系</label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2><span class="step">STEP 4</span>タイトル（柱）</h2>
+        <div class="fields">
+          <label class="f">タイトル（任意）
+            <input type="text" id="title" placeholder="例：Coral pea" autocomplete="off">
+          </label>
+          <div>
+            <div class="fieldset-title">表示位置</div>
+            <div class="seg four" role="radiogroup" aria-label="タイトルの位置">
+              <label><input type="radio" name="titlePos" id="tp-to" value="top-outer" checked>上・外側</label>
+              <label><input type="radio" name="titlePos" id="tp-tc" value="top-center">上・中央</label>
+              <label><input type="radio" name="titlePos" id="tp-bo" value="bottom-outer">下・外側</label>
+              <label><input type="radio" name="titlePos" id="tp-bc" value="bottom-center">下・中央</label>
+            </div>
+            <p class="hint">ページ番号と同じ位置を選んだ場合は、番号の内側に並べます。日本語のタイトルは高解像度（600dpi）の画像として入ります。</p>
+          </div>
+          <div>
+            <div class="fieldset-title">表示するページ</div>
+            <div class="checks">
+              <label><input type="checkbox" id="titleL" checked>左ページ</label>
+              <label><input type="checkbox" id="titleR">右ページ</label>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col sticky">
+      <section class="card">
+        <h2><span class="step">確認</span>見開きのイメージ</h2>
+        <div class="spread" id="spread"></div>
+        <p class="spread-cap" id="spreadCap"></p>
+        <div class="legend" id="legend"></div>
+      </section>
+
+      <section class="card">
+        <h2><span class="step">STEP 5</span>番号を付けて保存</h2>
+        <div class="actions">
+          <button class="primary" id="run" disabled>ページ番号を付ける</button>
+          <button class="ghost" id="save" disabled>PDFを保存</button>
+        </div>
+        <p class="status" id="runStatus">PDFを選ぶと実行できます。</p>
+        <div id="warnBox"></div>
+        <div id="preview">
+          <div class="empty" id="pvEmpty">番号を付けると、仕上がりをここで確認できます。</div>
+          <div class="thumbs" id="thumbs"></div>
+          <div class="pager" id="pager" hidden>
+            <button class="ghost" id="prev">‹ 前</button>
+            <span id="pvRange"></span>
+            <button class="ghost" id="next">次 ›</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer>
+    <section class="card contact">
+      <h3>お問い合わせ</h3>
+      <p id="contactText"></p>
+    </section>
+    <section class="card history">
+      <h3>更新履歴</h3>
+      <details id="historyBox">
+        <summary>すべての更新を見る</summary>
+        <ol id="historyList"></ol>
+      </details>
+    </section>
+  </footer>
+  <p class="copy" id="copy"></p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script>
+/* ===== ここを書き換えてください ===== */
+const X_ACCOUNT = "";   // お問い合わせ用のXアカウント（例："@harutsumugi"）。空のままだと「準備中」と表示されます。
+const APP_VERSION = "1.0.0";
+const HISTORY = [
+  { ver: "1.0.0", date: "2026-10-05", notes: [
+    "初版公開",
+    "ページ番号の位置：上・外側／下・中央／下・外側",
+    "タイトル（柱）の位置：上・下の中央／外側、左ページ・右ページごとに表示を選択",
+    "仕上がりサイズ（A6・B6・A5・B5・A5正方形・B5正方形、塗り足し3mmあり・なし）",
+    "とじしろのあり・なし、PDFの1枚目を左右どちらのページから始めるかを選択",
+    "番号を隠すページの指定、仕上がりのプレビュー"
+  ]}
+];
+/* =================================== */
+
+(() => {
+  const $ = id => document.getElementById(id);
+  const MM = 72 / 25.4;
+  const PER_VIEW = 6;
+  const SIZES = { a6:[105,148], b6:[128,182], a5:[148,210], b5:[182,257], a5sq:[148,148], b5sq:[182,182] };
+  let src = null, out = null, pvDoc = null, pvStart = 1, downloads = null;
+
+  if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+  /* ---------- 設定 ---------- */
+  const radio = name => document.querySelector(`input[name="${name}"]:checked`).value;
+  const num = (id, def) => { const v = parseFloat($(id).value); return Number.isFinite(v) ? v : def; };
+  function opts() {
+    const [paper, bleed] = $("paper").value.split(":");
+    return {
+      paper, bleed: +bleed,
+      gutter: radio("gutterOn") === "on" ? Math.max(0, num("gutter", 0)) : 0,
+      bind: radio("bind"), first: radio("first"),
+      numPos: radio("numPos"),
+      start: Math.max(1, Math.round(num("start", 1))),
+      hide: parseHide($("hide").value),
+      size: Math.min(24, Math.max(5, num("size", 9))),
+      vdist: Math.max(0, num("vdist", 10)),
+      outer: Math.max(0, num("outer", 12)),
+      face: radio("face"),
+      title: $("title").value.trim(), titlePos: radio("titlePos"),
+      titleL: $("titleL").checked, titleR: $("titleR").checked
+    };
+  }
+  function parseHide(s) {
+    const set = new Set();
+    s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+     .replace(/[〜～ー－−]/g, "-").replace(/[、，\s]+/g, ",")
+     .split(",").forEach(part => {
+      const m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (!m) return;
+      let a = +m[1], b = m[2] ? +m[2] : a;
+      if (a > b) [a, b] = [b, a];
+      for (let i = a; i <= b && i - a < 5000; i++) set.add(i);
+    });
+    return set;
+  }
+  const sideOf = (i, o) => (i % 2 === 0) ? o.first : (o.first === "left" ? "right" : "left");
+
+  // 1ページ分の「置き場所」をまとめる。h は left/center/right、items は左から順
+  function groupsFor(i, side, o) {
+    const n = o.start + i;
+    if (o.hide.has(n)) return [];
+    const map = {};
+    const put = (pos, item) => {
+      const [v, h] = pos.split("-");
+      const hh = h === "outer" ? side : "center";
+      const k = v + "-" + hh;
+      (map[k] = map[k] || { v, h: hh, items: [] }).items.push(item);
+    };
+    put(o.numPos, "n");
+    if (o.title && (side === "left" ? o.titleL : o.titleR)) put(o.titlePos, "t");
+    return Object.values(map).map(g => {
+      if (g.items.length > 1) g.items = g.h === "right" ? ["t", "n"] : ["n", "t"];
+      return g;
+    });
+  }
+
+  // 用紙と本文の配置（pt）
+  function layout(srcW, srcH, side, o) {
+    const b = o.bleed * MM;
+    const [tw, th] = o.paper === "orig" ? [srcW, srcH] : SIZES[o.paper].map(v => v * MM);
+    const T = { x: b, y: b, w: tw, h: th };
+    const g = o.gutter * MM;
+    const A = { x: side === "right" ? T.x + g : T.x, y: T.y, w: Math.max(1, T.w - g), h: T.h };
+    const s = Math.min(A.w / srcW, A.h / srcH);
+    return { pw: tw + 2 * b, ph: th + 2 * b, T, x: A.x + (A.w - srcW * s) / 2, y: A.y + (A.h - srcH * s) / 2, s };
+  }
+
+  const FIELDS = ["paper","gutter","start","hide","size","vdist","outer","title"];
+  const RADIOS = ["gutterOn","bind","first","numPos","face","titlePos"];
+  const CHECKS = ["titleL","titleR"];
+  const KEY = "nombre-tool-settings-v1";
+  function saveSettings() {
+    try {
+      const o = {};
+      FIELDS.forEach(f => o[f] = $(f).value);
+      RADIOS.forEach(r => o[r] = radio(r));
+      CHECKS.forEach(c => o[c] = $(c).checked);
+      localStorage.setItem(KEY, JSON.stringify(o));
+    } catch (e) {}
+  }
+  function loadSettings() {
+    try {
+      const o = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (!o) return;
+      FIELDS.forEach(f => { if (o[f] != null) $(f).value = o[f]; });
+      RADIOS.forEach(r => { const el = document.querySelector(`input[name="${r}"][value="${o[r]}"]`); if (el) el.checked = true; });
+      CHECKS.forEach(c => { if (typeof o[c] === "boolean") $(c).checked = o[c]; });
+      if (!$("paper").value) $("paper").value = "orig:0";
+    } catch (e) {}
+  }
+  const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+  /* ---------- 見開き図 ---------- */
+  function drawSpread() {
+    const o = opts();
+    $("gutter").disabled = radio("gutterOn") !== "on";
+    // 見開きの組を探す（右綴じ：右→左、左綴じ：左→右）
+    const firstSide = o.bind === "right" ? "right" : "left";
+    let i0 = 2;
+    while (sideOf(i0, o) !== firstSide) i0++;
+    const pair = [i0, i0 + 1];
+    const byPos = {}; pair.forEach(i => byPos[sideOf(i, o)] = i);
+    const [sw, sh] = src ? [src.w, src.h] : (o.paper === "orig" ? [148 * MM, 210 * MM] : SIZES[o.paper].map(v => v * MM));
+    const L = layout(sw, sh, "left", o);
+    const pct = (v, total) => (v / total * 100).toFixed(2) + "%";
+    const pageHtml = side => {
+      const i = byPos[side], n = o.start + i;
+      const lay = layout(sw, sh, side, o);
+      const { pw, ph, T } = lay;
+      let h = `<div class="page ${o.bind === "right" ? "v" : "h"}" style="aspect-ratio:${pw.toFixed(1)}/${ph.toFixed(1)}">`;
+      if (o.gutter > 0) {
+        const gw = o.gutter * MM;
+        h += `<div class="gut" style="${side === "left" ? "left:" + pct(T.x + T.w - gw, pw) : "left:" + pct(T.x, pw)};width:${pct(gw, pw)}"></div>`;
+      }
+      if (o.bleed > 0) h += `<div class="trim" style="left:${pct(T.x, pw)};right:${pct(T.x, pw)};top:${pct(T.y, ph)};bottom:${pct(T.y, ph)}"></div>`;
+      // 本文（余白込みの目安）
+      const cx = lay.x + sw * lay.s * 0.13, cw = sw * lay.s * 0.74;
+      const cyTop = ph - (lay.y + sh * lay.s * 0.87), chh = sh * lay.s * 0.72;
+      h += `<div class="body" style="left:${pct(cx, pw)};width:${pct(cw, pw)};top:${pct(cyTop, ph)};height:${pct(chh, ph)}"></div>`;
+      h += `<div class="side"><span>${side === "left" ? "左" : "右"}ページ</span></div>`;
+      groupsFor(i, side, o).forEach(g => {
+        const inner = g.items.map(it => it === "n" ? `<b>${n}</b>` : `<i>${esc(o.title)}</i>`).join("");
+        const vEdge = Math.max(4, (T.y + o.vdist * MM) / ph * 100);
+        const v = g.v === "top" ? `top:${vEdge.toFixed(1)}%` : `bottom:${vEdge.toFixed(1)}%`;
+        const hEdge = ((T.x + o.outer * MM) / pw * 100).toFixed(1) + "%";
+        const hs = g.h === "left" ? `left:${hEdge}` : g.h === "right" ? `right:${hEdge}` : "left:50%;transform:translateX(-50%)";
+        h += `<div class="slot" style="${v};${hs}">${inner}</div>`;
+      });
+      return h + "</div>";
+    };
+    $("spread").innerHTML = pageHtml("left") + pageHtml("right");
+    const nL = o.start + byPos.left, nR = o.start + byPos.right;
+    $("spreadCap").textContent = `左ページ p.${nL}${o.hide.has(nL) ? "（番号なし）" : ""} ／ 右ページ p.${nR}${o.hide.has(nR) ? "（番号なし）" : ""}`;
+    const leg = [];
+    if (o.gutter > 0) leg.push(`<span><i style="background:var(--gutter)"></i>とじしろ ${o.gutter}mm</span>`);
+    if (o.bleed > 0) leg.push(`<span><i style="border:1px dashed var(--nombre)"></i>仕上がり線（外側3mmは塗り足し）</span>`);
+    $("legend").innerHTML = leg.join("");
+  }
+
+  /* ---------- 読み込み ---------- */
+  async function loadFile(f) {
+    if (!f) return;
+    $("loadStatus").className = "status";
+    if (!/\.pdf$/i.test(f.name) && f.type !== "application/pdf") {
+      $("loadStatus").className = "status err";
+      $("loadStatus").textContent = "PDFファイルを選んでください。";
+      return;
+    }
+    $("loadStatus").textContent = "読み込み中…";
+    try {
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      const doc = await PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
+      if (doc.isEncrypted) throw new Error("encrypted");
+      const p = doc.getPage(0).getCropBox();
+      src = { bytes, name: f.name.replace(/\.pdf$/i, ""), pages: doc.getPageCount(), w: p.width, h: p.height };
+      $("fi-name").textContent = f.name;
+      $("fi-pages").textContent = `${src.pages} ページ`;
+      $("fi-size").textContent = `${(p.width / MM).toFixed(0)} × ${(p.height / MM).toFixed(0)} mm（${paperName(p.width / MM, p.height / MM)}）`;
+      $("fileinfo").hidden = false;
+      $("loadStatus").textContent = "";
+      $("run").disabled = false;
+      setStatus("設定を確認して「ページ番号を付ける」を押してください。");
+      resetOutput(); drawSpread();
+    } catch (e) {
+      src = null; $("run").disabled = true; $("fileinfo").hidden = true;
+      $("loadStatus").className = "status err";
+      $("loadStatus").textContent = e.message === "encrypted"
+        ? "パスワードや編集制限がかかったPDFは扱えません。制限を外したPDFを書き出して選び直してください。"
+        : "このPDFを読み込めませんでした。ファイルが壊れていないか確認してください。";
+    } finally { $("file").value = ""; }
+  }
+  function paperName(w, h) {
+    const a = Math.min(w, h), b = Math.max(w, h);
+    const names = { a6:"A6", b6:"B6", a5:"A5", b5:"B5", a5sq:"A5正方形", b5sq:"B5正方形" };
+    for (const [k, [x, y]] of Object.entries(SIZES)) {
+      if (Math.abs(x - a) < 1.5 && Math.abs(y - b) < 1.5) return names[k];
+      if (Math.abs(x + 6 - a) < 1.5 && Math.abs(y + 6 - b) < 1.5) return names[k] + "＋塗り足し";
+    }
+    return "その他";
+  }
+  const setStatus = (t, cls = "") => { $("runStatus").className = "status " + cls; $("runStatus").textContent = t; };
+
+  /* ---------- 日本語タイトルを画像にする ---------- */
+  async function titleImage(text, sizePt, face) {
+    const scale = 600 / 72, px = sizePt * scale;
+    const family = face === "serif" ? '"Noto Serif JP", "Shippori Mincho", serif' : '"Zen Kaku Gothic New", sans-serif';
+    const font = `${px}px ${family}`;
+    try { await document.fonts.load(font, text); } catch (e) {}
+    const c = document.createElement("canvas");
+    let ctx = c.getContext("2d"); ctx.font = font;
+    const w = Math.ceil(ctx.measureText(text).width) + 4;
+    const h = Math.ceil(px * 1.5), base = Math.round(px * 1.15);
+    c.width = w; c.height = h;
+    ctx = c.getContext("2d"); ctx.font = font; ctx.fillStyle = "#000"; ctx.textBaseline = "alphabetic";
+    ctx.fillText(text, 2, base);
+    const blob = await new Promise(r => c.toBlob(r, "image/png"));
+    return { bytes: new Uint8Array(await blob.arrayBuffer()), w: w / scale, h: h / scale, below: (h - base) / scale, pad: 2 / scale };
+  }
+
+  /* ---------- 番号付け ---------- */
+  async function run() {
+    if (!src) return;
+    const o = opts();
+    $("run").disabled = true; $("save").disabled = true;
+    setStatus("処理中…"); $("warnBox").innerHTML = "";
+    try {
+      const { PDFDocument, StandardFonts, rgb } = PDFLib;
+      const srcDoc = await PDFDocument.load(src.bytes, { ignoreEncryption: true });
+      const inPlace = o.paper === "orig" && o.bleed === 0 && o.gutter === 0;
+      const doc = inPlace ? srcDoc : await PDFDocument.create();
+      const font = await doc.embedFont(o.face === "serif" ? StandardFonts.TimesRoman : StandardFonts.Helvetica);
+      const ascii = /^[\x20-\x7E]*$/.test(o.title);
+      let img = null, imgInfo = null;
+      if (o.title && !ascii) { imgInfo = await titleImage(o.title, o.size, o.face); img = await doc.embedPng(imgInfo.bytes); }
+      const gap = o.size * 1.6;
+      const black = rgb(0, 0, 0);
+      const srcPages = srcDoc.getPages();
+      let embedded = [];
+      if (!inPlace) {
+        const boxes = srcPages.map(p => { const b = p.getCropBox(); return { left: b.x, bottom: b.y, right: b.x + b.width, top: b.y + b.height }; });
+        embedded = await doc.embedPages(srcPages, boxes);
+      }
+      let rotated = 0, placed = 0, scaled = 0;
+      for (let i = 0; i < srcPages.length; i++) {
+        const sp = srcPages[i];
+        if (sp.getRotation().angle % 360 !== 0) rotated++;
+        const side = sideOf(i, o);
+        const cb = sp.getCropBox();
+        const lay = layout(cb.width, cb.height, side, o);
+        let page, T;
+        if (inPlace) {
+          page = sp; T = { x: cb.x, y: cb.y, w: cb.width, h: cb.height };
+        } else {
+          page = doc.addPage([lay.pw, lay.ph]);
+          page.drawPage(embedded[i], { x: lay.x, y: lay.y, xScale: lay.s, yScale: lay.s });
+          if (lay.s < 0.995) scaled++;
+          T = lay.T;
+        }
+        const n = o.start + i;
+        const groups = groupsFor(i, side, o);
+        if (groups.length) placed++;
+        for (const g of groups) {
+          const parts = g.items.map(it => {
+            if (it === "n") { const t = String(n); return { it, w: font.widthOfTextAtSize(t, o.size), t }; }
+            return { it, w: img ? imgInfo.w - 2 * imgInfo.pad : font.widthOfTextAtSize(o.title, o.size) };
+          });
+          const total = parts.reduce((s, p) => s + p.w, 0) + gap * (parts.length - 1);
+          let x = g.h === "left" ? T.x + o.outer * MM
+                : g.h === "right" ? T.x + T.w - o.outer * MM - total
+                : T.x + (T.w - total) / 2;
+          const baseY = g.v === "top" ? T.y + T.h - o.vdist * MM - o.size * 0.68 : T.y + o.vdist * MM;
+          for (const p of parts) {
+            if (p.it === "n") page.drawText(p.t, { x, y: baseY, size: o.size, font, color: black });
+            else if (img) page.drawImage(img, { x: x - imgInfo.pad, y: baseY - imgInfo.below, width: imgInfo.w, height: imgInfo.h });
+            else page.drawText(o.title, { x, y: baseY, size: o.size, font, color: black });
+            x += p.w + gap;
+          }
+        }
+      }
+      out = await doc.save();
+      const last = o.start + src.pages - 1;
+      setStatus(`${placed}ページに番号を付けました（p.${o.start}〜${last}）。プレビューを確認して保存してください。`, "ok");
+      const warns = [];
+      if (rotated) warns.push(`${rotated}ページが回転して保存されたPDFです。向きや番号の位置がずれている場合は、回転のないPDFを書き出して試してください。`);
+      if (scaled && o.paper !== "orig") warns.push(`${scaled}ページは、選んだサイズやとじしろに合わせて縮小して配置しました。`);
+      $("warnBox").innerHTML = warns.map(w => `<p class="warn">${w}</p>`).join("");
+      $("save").disabled = false;
+      await openPreview();
+    } catch (e) {
+      console.error(e);
+      setStatus("番号を付けられませんでした。別の書き出し設定のPDFで試してください。", "err");
+    } finally { $("run").disabled = !src; }
+  }
+  function resetOutput() {
+    out = null; pvDoc = null; $("save").disabled = true;
+    $("thumbs").innerHTML = ""; $("pager").hidden = true; $("pvEmpty").hidden = false;
+    $("pvEmpty").textContent = "番号を付けると、仕上がりをここで確認できます。";
+    $("warnBox").innerHTML = "";
+  }
+
+  /* ---------- プレビュー ---------- */
+  async function openPreview() {
+    $("pvEmpty").hidden = true;
+    const fail = () => { $("pvEmpty").hidden = false; $("pvEmpty").textContent = "プレビューを表示できませんでした。保存したPDFで確認してください。"; };
+    if (!window.pdfjsLib) return fail();
+    try { pvDoc = await pdfjsLib.getDocument({ data: out.slice() }).promise; pvStart = 1; await renderThumbs(); }
+    catch (e) { fail(); }
+  }
+  async function renderThumbs() {
+    const o = opts(), total = pvDoc.numPages, end = Math.min(total, pvStart + PER_VIEW - 1);
+    const box = $("thumbs"); box.innerHTML = "";
+    $("pager").hidden = total <= PER_VIEW;
+    $("pvRange").textContent = `${pvStart}–${end} / ${total}枚`;
+    $("prev").disabled = pvStart <= 1; $("next").disabled = end >= total;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    for (let i = pvStart; i <= end; i++) {
+      const page = await pvDoc.getPage(i);
+      const vp0 = page.getViewport({ scale: 1 });
+      const vp = page.getViewport({ scale: (200 / vp0.width) * dpr });
+      const c = document.createElement("canvas");
+      c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+      const fig = document.createElement("div"); fig.className = "thumb";
+      const n = o.start + i - 1, side = sideOf(i - 1, o) === "left" ? "左" : "右";
+      fig.innerHTML = `<small>${side}ページ・${o.hide.has(n) ? "番号なし" : "p." + n}</small>`;
+      fig.prepend(c); box.appendChild(fig);
+      await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    }
+  }
+
+  /* ---------- 保存 ---------- */
+  async function save() {
+    if (!out) return;
+    const filename = `${src.name}_ノンブル付き.pdf`;
+    const blob = new Blob([out], { type: "application/pdf" });
+    if (downloads) {
+      try { await downloads.save({ filename, data: blob }); setStatus("保存しました。", "ok"); }
+      catch (e) {
+        if (e && e.code === "declined") return;
+        setStatus(e && e.code === "rate_limited" ? "保存の確認画面がすでに開いています。少し待ってからもう一度押してください。" : "保存できませんでした。もう一度お試しください。", "err");
+      }
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 5000);
+    setStatus("保存を開始しました。ダウンロードフォルダを確認してください。", "ok");
+  }
+
+  /* ---------- フッター ---------- */
+  function drawFooter() {
+    $("verBadge").textContent = "v" + APP_VERSION;
+    const h = X_ACCOUNT.replace(/^@/, "").trim();
+    $("contactText").innerHTML = h
+      ? `不具合のご報告やご要望は、X（旧Twitter）の <a href="https://x.com/${encodeURIComponent(h)}" target="_blank" rel="noopener">@${esc(h)}</a> までお気軽にどうぞ。`
+      : "お問い合わせ先は準備中です。";
+    $("historyList").innerHTML = HISTORY.map(r =>
+      `<li><div class="h-head"><b>v${esc(r.ver)}</b><span>${esc(r.date)}</span></div><ul>${r.notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul></li>`).join("");
+    $("historyBox").open = HISTORY.length <= 1;
+    $("copy").textContent = `ページ番号追加ツール v${APP_VERSION}`;
+  }
+
+  /* ---------- イベント ---------- */
+  loadSettings(); drawFooter(); drawSpread();
+  $("file").addEventListener("change", e => loadFile(e.target.files[0]));
+  const drop = $("drop");
+  ["dragenter","dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave","drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e => loadFile(e.dataTransfer.files[0]));
+  document.querySelectorAll(".fields input, .fields select").forEach(el => {
+    const ev = el.matches("select, [type=radio], [type=checkbox]") ? "change" : "input";
+    el.addEventListener(ev, () => {
+      if (el.name === "bind") {   // 綴じ方向に合わせて1枚目の左右を初期化
+        const v = el.value === "right" ? "left" : "right";
+        document.querySelector(`input[name="first"][value="${v}"]`).checked = true;
+      }
+      drawSpread(); saveSettings();
+      if (out) { resetOutput(); setStatus("設定を変えました。もう一度「ページ番号を付ける」を押してください。"); }
+    });
+  });
+  $("run").addEventListener("click", run);
+  $("save").addEventListener("click", save);
+  $("prev").addEventListener("click", () => { pvStart = Math.max(1, pvStart - PER_VIEW); renderThumbs(); });
+  $("next").addEventListener("click", () => { pvStart += PER_VIEW; renderThumbs(); });
+  if (window.claude && typeof window.claude.use === "function") {
+    window.claude.use("downloads").then(d => { downloads = d; }).catch(() => {});
+  }
+})();
+</script>
+
+</body>
+</html>
